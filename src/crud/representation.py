@@ -72,8 +72,11 @@ class RepresentationManager:
         # Batch embed all observations
         batch_embed_start = time.perf_counter()
 
+        # Truncate to ~20k chars to stay within nomic-embed-text's 8192 token limit;
+        # prevents HTTP 400 "input length exceeds context length" from Ollama.
+        _MAX_EMBED_CHARS = 20000
         observation_texts = [
-            obs.conclusion if isinstance(obs, DeductiveObservation) else obs.content
+            (obs.conclusion if isinstance(obs, DeductiveObservation) else obs.content)[:_MAX_EMBED_CHARS]
             for obs in all_observations
         ]
         try:
@@ -82,6 +85,15 @@ class RepresentationManager:
             raise exceptions.ValidationException(
                 f"Observation content exceeds maximum token limit of {settings.MAX_EMBEDDING_TOKENS}."
             ) from e
+        except Exception as e:
+            # Catch HTTP 400 from Ollama ("input length exceeds context length") and
+            # other provider errors — re-raise as ValidationException so the caller
+            # logs it and moves on rather than crashing the deriver worker.
+            if "400" in str(e) or "context length" in str(e).lower():
+                raise exceptions.ValidationException(
+                    f"Embedding failed (content too long for model): {e}"
+                ) from e
+            raise
 
         batch_embed_duration = (time.perf_counter() - batch_embed_start) * 1000
         accumulate_metric(
