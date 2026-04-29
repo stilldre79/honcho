@@ -49,6 +49,18 @@ Messages to analyze:
 <messages>
 {messages}
 </messages>
+
+## OUTPUT FORMAT
+
+Respond with valid JSON only — no prose, no <analysis> tags, no markdown fences, no commentary before or after. Your entire response must parse as a single JSON object matching this schema:
+
+{{"explicit": [{{"content": "<self-contained fact about {peer_id}>"}}, ...]}}
+
+If no facts can be extracted, return: {{"explicit": []}}
+
+Examples of valid responses:
+{{"explicit": [{{"content": "{peer_id} is 25 years old"}}, {{"content": "{peer_id} has a dog named Rover"}}]}}
+{{"explicit": []}}
 """
     )
 
